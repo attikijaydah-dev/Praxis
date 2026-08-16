@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>PASS Master Pro 4.0</title>
+  
+  <link rel="manifest" href="manifest.json">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  
+  <style>
+    :root {
+      --bg-color: #0f172a;
+      --card-bg: #1e293b;
+      --accent: #38bdf8;
+      --text: #f8fafc;
+      --success: #22c55e;
+      --danger: #ef4444;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text);
+      margin: 0; padding: 20px;
+      display: flex; justify-content: center;
+    }
+
+    .container { max-width: 700px; width: 100%; }
+    h1 { text-align: center; color: var(--accent); font-size: 2rem; margin-bottom: 5px; }
+    .subtitle { text-align: center; color: #94a3b8; margin-bottom: 20px; font-size: 0.9rem; }
+
+    .card {
+      background-color: var(--card-bg);
+      border-radius: 16px; padding: 24px;
+      margin-bottom: 20px;
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+    }
+
+    textarea {
+      width: 100%; height: 140px; background: #0f172a;
+      border: 1px solid #334155; color: #fff; border-radius: 12px;
+      padding: 12px; box-sizing: border-box; font-size: 16px;
+    }
+
+    button {
+      width: 100%; min-height: 56px; background-color: var(--accent);
+      color: #0f172a; border: none; padding: 14px; border-radius: 12px;
+      font-weight: bold; font-size: 18px; cursor: pointer; margin-top: 10px;
+    }
+
+    .btn-group { display: flex; gap: 12px; }
+    .btn-success { background-color: var(--success); color: #fff; }
+    .btn-danger { background-color: var(--danger); color: #fff; }
+
+    .option-btn {
+      background: #334155; color: #fff; text-align: left;
+      font-weight: normal; margin: 10px 0; font-size: 16px;
+    }
+
+    .flashcard {
+      min-height: 250px; background: #0f172a; border: 2px dashed #334155;
+      border-radius: 12px; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; padding: 20px;
+      text-align: center; font-size: 1.3rem; cursor: pointer; margin-bottom: 15px;
+    }
+
+    /* Bug #1 Fix : Utilisation correcte du style width */
+    .progress-bar-bg {
+      width: 100%; height: 12px; background: #0f172a;
+      border-radius: 6px; overflow: hidden; margin-bottom: 15px;
+    }
+    .progress-bar-fill {
+      height: 100%; background: var(--accent); width: 0%; transition: width 0.3s ease;
+    }
+
+    .loading-spinner {
+      text-align: center; font-size: 1.2rem; color: var(--accent); display: none;
+    }
+
+    .ai-box {
+      background: #0f172a; border: 1px solid #334155; border-radius: 8px;
+      padding: 15px; font-size: 0.95rem; line-height: 1.5; color: #cbd5e1; margin-top: 10px;
+    }
+
+    .concept-badge {
+      display: inline-block; background: #334155; color: var(--accent);
+      padding: 4px 10px; border-radius: 20px; font-size: 0.8rem; margin-bottom: 10px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <h1>🩺 PASS Master Pro 4.0</h1>
+  <div class="subtitle" id="stats-summary">Chargement de la base de données...</div>
+
+  <div class="card" id="setup-card">
+    <h3>1. Colle ton chapitre de PASS</h3>
+    <textarea id="course-text" placeholder="Colle ton cours ici... L'IA va analyser la densité et extraire les notions."></textarea>
+    
+    <div class="btn-group">
+      <button onclick="analyzeAndStart('qcm')">🧠 Mode QCM par Notions</button>
+      <button onclick="analyzeAndStart('flashcards')" style="background-color: #a855f7; color: #fff;">🎴 Flashcards</button>
+    </div>
+  </div>
+
+  <div id="loading" class="loading-spinner">🧠 Analyse du cours & Extraction des concepts en cours...</div>
+
+  <div class="card" id="qcm-card" style="display:none;">
+    <span id="qcm-topic" class="concept-badge">Notion : ...</span>
+    <h3 id="question-title">Question...</h3>
+    <div id="options-container"></div>
+    
+    <div id="feedback-box" style="display:none;" class="ai-box"></div>
+    <button id="next-qcm-btn" style="display:none;" onclick="loadNextQCM()">Question Suivante ➡️</button>
+  </div>
+
+  <div class="card" id="flashcard-card" style="display:none;">
+    <div class="progress-bar-bg">
+      <div id="p-bar" class="progress-bar-fill"></div>
+    </div>
+    
+    <div class="flashcard" id="flashcard-display" onclick="flipCard()">
+      <span id="card-content">Toucher pour voir le verso</span>
+    </div>
+
+    <div id="card-actions" class="btn-group" style="display:none;">
+      <button class="btn-danger" onclick="rateCard(0)">❌ À revoir (0pt)</button>
+      <button class="btn-success" onclick="rateCard(1)">✅ Maîtrisé (+1pt)</button>
+    </div>
+
+    <div id="loop-end-box" style="display:none;">
+      <h3>📊 Synthèse des erreurs</h3>
+      <div id="ai-mistake-analysis" class="ai-box">Analyse en cours...</div>
+      <button id="retry-btn" onclick="continueLearning()">🔄 Continuer les cartes non maîtrisées</button>
+      <button onclick="resetApp()" style="background:#334155; color:#fff;">Retour au menu</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  let currentCourse = "";
+  let extractedConcepts = []; // Base de notions générée par l'IA
+  let previousTopics = [];   // Bug #3 Fix : Historique des thèmes pour éviter l'explosion des tokens
+  let currentDeck = [];
+  let mistakes = [];
+  let currentCardIndex = 0;
+  let currentQCMData = null;
+
+  // --- ANALYSE PRÉALABLE DU COURS (Extraction de la densité) ---
+  async function analyzeAndStart(mode) {
+    currentCourse = document.getElementById('course-text').value.trim();
+    if(!currentCourse) return alert("Colle un extrait de cours !");
+
+    showLoading(true);
+    document.getElementById('setup-card').style.display = 'none';
+
+    try {
+      // Étape 1 : L'IA extrait les concepts importants du cours
+      const res = await fetch('/api/extract-concepts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ course: currentCourse })
+      });
+      
+      const data = await res.json();
+      extractedConcepts = data.concepts; // Ex: ["Artère fémorale", "Médiastin postérieur", ...]
+
+      if(mode === 'qcm') {
+        document.getElementById('qcm-card').style.display = 'block';
+        loadNextQCM();
+      } else {
+        initFlashcards();
+      }
+    } catch(e) {
+      alert("Erreur d'analyse. Vérifie la connexion serveur.");
+      resetApp();
+    } finally {
+      showLoading(false);
+    }
+  }
+
+  // --- QCM INFINI & DYNAMIQUE ---
+  async function loadNextQCM() {
+    showLoading(true);
+    document.getElementById('feedback-box').style.display = 'none';
+    document.getElementById('next-qcm-btn').style.display = 'none';
+
+    try {
+      const res = await fetch('/api/generate-qcm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          course: currentCourse, 
+          concepts: extractedConcepts, 
+          previousTopics: previousTopics 
+        })
+      });
+
+      currentQCMData = await res.json();
+      
+      // Bug #3 Fix : On garde uniquement les 30 derniers thèmes (pas 500 questions entières)
+      previousTopics.push(currentQCMData.topic);
+      if(previousTopics.length > 30) previousTopics.shift();
+
+      document.getElementById('qcm-topic').innerText = "Notion : " + (currentQCMData.topic || "Général");
+      document.getElementById('question-title').innerText = currentQCMData.question;
+      
+      const container = document.getElementById('options-container');
+      container.innerHTML = '';
+
+      currentQCMData.options.forEach((opt, idx) => {
+        const btn = document.createElement('button');
+        btn.className = 'option-btn';
+        btn.innerText = opt;
+        btn.onclick = () => checkQCM(idx);
+        container.appendChild(btn);
+      });
+    } catch (e) {
+      alert("Erreur de génération.");
+    } finally {
+      showLoading(false);
+    }
+  }
+
+  function checkQCM(selected) {
+    const fb = document.getElementById('feedback-box');
+    fb.style.display = 'block';
+    
+    if(selected === currentQCMData.correctIndex) {
+      fb.innerHTML = `<b style="color:var(--success)">✨ Bonne réponse !</b><br>${currentQCMData.explanations[selected]}`;
+    } else {
+      fb.innerHTML = `<b style="color:var(--danger)">❌ Erreur :</b><br>${currentQCMData.explanations[selected]}`;
+    }
+    document.getElementById('next-qcm-btn').style.display = 'block';
+  }
+
+  // --- FLASHCARDS & RÉPÉTITION ESPACÉE ---
+  async function initFlashcards() {
+    showLoading(true);
+    try {
+      const res = await fetch('/api/generate-flashcards', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ course: currentCourse, concepts: extractedConcepts })
+      });
+
+      const cards = await res.json();
+      currentDeck = cards.map(c => ({ ...c, mastery: 0 }));
+      mistakes = [];
+      currentCardIndex = 0;
+
+      document.getElementById('flashcard-card').style.display = 'block';
+      showCard();
+    } catch (e) {
+      alert("Erreur lors de la création des cartes.");
+      resetApp();
+    } finally {
+      showLoading(false);
+    }
+  }
+
+  function showCard() {
+    document.getElementById('card-actions').style.display = 'none';
+    document.getElementById('flashcard-display').style.display = 'flex';
+    
+    // Protection contre les erreurs d'accès
+    if(currentDeck[currentCardIndex]) {
+      document.getElementById('card-content').innerText = "❓ " + currentDeck[currentCardIndex].q;
+    }
+    updateProgressBar();
+  }
+
+  // Bug #2 Fix : Protection de flipCard contre les index "undefined"
+  function flipCard() {
+    if(!currentDeck[currentCardIndex]) return;
+    
+    document.getElementById('card-content').innerText = "💡 " + currentDeck[currentCardIndex].r;
+    document.getElementById('card-actions').style.display = 'flex';
+  }
+
+  function rateCard(points) {
+    if(!currentDeck[currentCardIndex]) return;
+
+    if(points === 0) {
+      currentDeck[currentCardIndex].mastery = 0;
+      mistakes.push(currentDeck[currentCardIndex]);
+    } else {
+      currentDeck[currentCardIndex].mastery += 1;
+    }
+
+    currentCardIndex++;
+    if(currentCardIndex < currentDeck.length) {
+      showCard();
+    } else {
+      finishCardTour();
+    }
+  }
+
+  // Bug #1 Fix : Correctif sur style.width
+  function updateProgressBar() {
+    if(currentDeck.length === 0) return;
+    const pct = (currentCardIndex / currentDeck.length) * 100;
+    document.getElementById('p-bar').style.width = pct + "%"; 
+  }
+
+  async function finishCardTour() {
+    document.getElementById('flashcard-display').style.display = 'none';
+    document.getElementById('card-actions').style.display = 'none';
+    document.getElementById('loop-end-box').style.display = 'block';
+
+    const unmastered = currentDeck.filter(c => c.mastery < 3);
+
+    if(mistakes.length > 0) {
+      showLoading(true);
+      const res = await fetch('/api/analyze-mistakes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mistakes })
+      });
+      const data = await res.json();
+      document.getElementById('ai-mistake-analysis').innerText = data.analysis;
+      showLoading(false);
+    } else {
+      document.getElementById('ai-mistake-analysis').innerText = "🎉 Mémorisation parfaite sur cette session !";
+    }
+
+    if(unmastered.length === 0) {
+      document.getElementById('retry-btn').style.display = 'none';
+    } else {
+      document.getElementById('retry-btn').style.display = 'block';
+    }
+  }
+
+  function continueLearning() {
+    currentDeck = currentDeck.filter(c => c.mastery < 3);
+    mistakes = [];
+    currentCardIndex = 0;
+    document.getElementById('loop-end-box').style.display = 'none';
+    showCard();
+  }
+
+  function showLoading(active) {
+    document.getElementById('loading').style.display = active ? 'block' : 'none';
+  }
+
+  function resetApp() {
+    document.getElementById('setup-card').style.display = 'block';
+    document.getElementById('qcm-card').style.display = 'none';
+    document.getElementById('flashcard-card').style.display = 'none';
+    document.getElementById('loop-end-box').style.display = 'none';
+  }
+</script>
+</body>
+</html>
